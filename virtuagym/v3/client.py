@@ -221,14 +221,18 @@ class VirtuaGymClientV3:
     # ── Internals ──────────────────────────────────────────────────────
 
     def _event_pages(self, path: str, params: dict[str, Any]) -> Iterator[list[ScheduleEvent]]:
+        # Pages can overlap at the boundary (unstable sort on
+        # datetime_start ties); repeated occurrences are dropped.
+        seen: set[str] = set()
         page = 1
         while True:
             envelope = self._request("GET", path, params={**params, "page": page})
             rows, total_pages = _core.events_page(envelope)
-            events = [ScheduleEvent.model_validate(row) for row in rows]
+            fresh = _core.dedupe_occurrences(rows, seen)
+            events = [ScheduleEvent.model_validate(row) for row in fresh]
             if events:
                 yield events
-            if not events or page >= (total_pages or page):
+            if not rows or page >= (total_pages or page):
                 return
             page += 1
 

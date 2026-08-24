@@ -68,3 +68,19 @@ def events_page(envelope: Any) -> tuple[list[Any], int | None]:
         rows if isinstance(rows, list) else [],
         total_pages if isinstance(total_pages, int) else None,
     )
+
+
+def dedupe_occurrences(rows: list[Any], seen: set[str]) -> list[Any]:
+    """Drops schedule-event occurrences already seen in a previous page.
+
+    The API's sort is unstable on datetime_start ties, so page-based
+    pagination can repeat the boundary row (verified live 2026-08-20; the
+    same walk was exact on 2026-08-12).
+    """
+    fresh = []
+    for row in rows:
+        key = f"{row.get('event_id')}|{row.get('datetime_start')}" if isinstance(row, dict) else ""
+        if key not in seen:
+            seen.add(key)
+            fresh.append(row)
+    return fresh

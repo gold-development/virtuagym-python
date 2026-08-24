@@ -251,6 +251,36 @@ def test_retrieves_schedule_events_and_follows_total_pages() -> None:
 
 
 @respx.mock
+def test_drops_occurrences_repeated_on_page_boundaries() -> None:
+    # The API's sort is unstable on datetime_start ties, so the last row of
+    # a page can reappear as the first row of the next page.
+    respx.post(TOKEN_URL).mock(return_value=token_response())
+    boundary = event("e-boundary")
+    respx.get(f"{GATEWAY}/private/v3/clubs/12345/schedule/integration/events").mock(
+        side_effect=[
+            events_envelope([event("e-1"), boundary], 2),
+            events_envelope([boundary, event("e-2")], 2),
+        ]
+    )
+
+    events = client().all_events(date_start=1, date_end=2)
+
+    assert [e.event_id for e in events] == ["e-1", "e-boundary", "e-2"]
+
+
+@respx.mock
+def test_keeps_different_occurrences_of_recurring_event_id() -> None:
+    respx.post(TOKEN_URL).mock(return_value=token_response())
+    occurrence1 = {**event("e-recurring"), "datetime_start": 100}
+    occurrence2 = {**event("e-recurring"), "datetime_start": 200}
+    respx.get(f"{GATEWAY}/private/v3/clubs/12345/schedule/integration/events").mock(
+        return_value=events_envelope([occurrence1, occurrence2], 1)
+    )
+
+    assert len(client().all_events(date_start=1, date_end=2)) == 2
+
+
+@respx.mock
 def test_treats_204_bookings_response_as_empty() -> None:
     respx.post(TOKEN_URL).mock(return_value=token_response())
     respx.get(f"{GATEWAY}/private/v3/clubs/12345/schedule/integration/events/bookings").mock(
