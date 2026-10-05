@@ -99,6 +99,42 @@ def test_falls_back_to_last_row_cursor_without_next_page() -> None:
 
 
 @respx.mock
+def test_collapses_member_edited_mid_walk_into_latest_copy() -> None:
+    # Member 1 is edited between pages, moves past the cursor and comes back.
+    respx.get(f"{BASE}/club/12345/member").mock(
+        side_effect=[
+            Response(
+                200,
+                json=envelope(
+                    [employee(1, 100), employee(2, 200)], 1, next_page="sync_from=200&from_id=2"
+                ),
+            ),
+            Response(200, json=envelope([employee(3, 300), employee(1, 400)], 0)),
+        ]
+    )
+
+    members = client().all_members()
+
+    assert [m.member_id for m in members] == [1, 2, 3]
+    assert members[0].timestamp_edit == 400
+
+
+@respx.mock
+def test_collapses_employee_edited_mid_walk_into_latest_copy() -> None:
+    respx.get(f"{BASE}/club/12345/employee").mock(
+        side_effect=[
+            Response(200, json=envelope([employee(1, 100)], 1)),
+            Response(200, json=envelope([employee(1, 200)], 0)),
+        ]
+    )
+
+    employees = client().all_employees()
+
+    assert len(employees) == 1
+    assert employees[0].timestamp_edit == 200
+
+
+@respx.mock
 def test_raises_on_flat_in_band_error_with_http_200() -> None:
     respx.get(f"{BASE}/club/12345/employee").mock(
         return_value=Response(200, json={"statuscode": 420, "statusmessage": "Not found."})
@@ -345,3 +381,19 @@ async def test_async_client_mirrors_sync_behavior() -> None:
     employees = await async_client.all_employees()
 
     assert [e.member_id for e in employees] == [1, 2]
+
+
+@respx.mock
+async def test_async_client_collapses_member_edited_mid_walk() -> None:
+    respx.get(f"{BASE}/club/12345/member").mock(
+        side_effect=[
+            Response(200, json=envelope([employee(1, 100)], 1)),
+            Response(200, json=envelope([employee(1, 200)], 0)),
+        ]
+    )
+    async_client = AsyncVirtuaGymClientV1("test-api-key", "test-club-secret", 12345)
+
+    members = await async_client.all_members()
+
+    assert len(members) == 1
+    assert members[0].timestamp_edit == 200

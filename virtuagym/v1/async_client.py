@@ -78,7 +78,10 @@ class AsyncVirtuaGymClientV1:
             yield page
 
     async def all_employees(self, **kwargs: Any) -> list[Employee]:
-        return [employee async for page in self.employees(**kwargs) for employee in page]
+        return _core.latest_by_key(
+            [employee async for page in self.employees(**kwargs) for employee in page],
+            lambda employee: employee.member_id,
+        )
 
     async def employee(
         self, member_id: int, *, any_sub_club: bool = False, with_: str | None = None
@@ -130,7 +133,10 @@ class AsyncVirtuaGymClientV1:
             yield page
 
     async def all_members(self, **kwargs: Any) -> list[Member]:
-        return [member async for page in self.members(**kwargs) for member in page]
+        return _core.latest_by_key(
+            [member async for page in self.members(**kwargs) for member in page],
+            lambda member: member.member_id,
+        )
 
     async def member(
         self, member_id: int, *, any_sub_club: bool = False, with_: str | None = None

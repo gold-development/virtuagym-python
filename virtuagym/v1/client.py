@@ -83,7 +83,10 @@ class VirtuaGymClientV1:
 
     def all_employees(self, **kwargs: Any) -> list[Employee]:
         """Retrieves every employee across all pages."""
-        return [employee for page in self.employees(**kwargs) for employee in page]
+        return _core.latest_by_key(
+            [employee for page in self.employees(**kwargs) for employee in page],
+            lambda employee: employee.member_id,
+        )
 
     def employee(
         self, member_id: int, *, any_sub_club: bool = False, with_: str | None = None
@@ -146,7 +149,10 @@ class VirtuaGymClientV1:
 
     def all_members(self, **kwargs: Any) -> list[Member]:
         """Retrieves every member across all pages."""
-        return [member for page in self.members(**kwargs) for member in page]
+        return _core.latest_by_key(
+            [member for page in self.members(**kwargs) for member in page],
+            lambda member: member.member_id,
+        )
 
     def member(
         self, member_id: int, *, any_sub_club: bool = False, with_: str | None = None

@@ -8,8 +8,8 @@ verified against the live API (see API-FINDINGS.md in
 gold-development/virtuagym-node).
 """
 
-from collections.abc import Callable
-from typing import Any
+from collections.abc import Callable, Iterable
+from typing import Any, TypeVar
 from urllib.parse import parse_qs
 
 import httpx
@@ -17,6 +17,8 @@ import httpx
 from virtuagym.exceptions import VirtuaGymApiError
 
 BASE_URL = "https://api.virtuagym.com/api/v1"
+
+T = TypeVar("T")
 
 Status = dict[str, Any]
 Params = dict[str, Any]
@@ -150,6 +152,17 @@ advance_event_cursor = make_sync_from_advancer("")
 advance_participant_cursor = make_sync_from_advancer("timestamp_edit")
 advance_visit_cursor = make_sync_from_advancer("check_in_timestamp")
 advance_credit_cursor = make_sync_from_advancer("timestamp_edited", require_progress=True)
+
+
+def latest_by_key(items: Iterable[T], key: Callable[[T], Any]) -> list[T]:
+    """Collapses rows sharing a key: the first occurrence keeps its position,
+    the latest copy wins. Needed for timestamp_edit cursors, where a row
+    edited during the walk moves past the cursor and is returned again on a
+    later page."""
+    latest: dict[Any, T] = {}
+    for item in items:
+        latest[key(item)] = item
+    return list(latest.values())
 
 
 def drop_query_none(params: Params) -> Params:
